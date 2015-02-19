@@ -1,118 +1,53 @@
-/**
- * Copyright 1993-2014 NVIDIA Corporation.  All rights reserved.
- *
- * Please refer to the NVIDIA end user license agreement (EULA) associated
- * with this source code for terms and conditions that govern your use of
- * this software. Any use, reproduction, disclosure, or distribution of
- * this software and related documentation outside the terms of the EULA
- * is strictly prohibited.
- *
- */
-
-/**
- * Matrix multiplication: C = A * B.
- * Host code.
- *
- * This sample implements matrix multiplication as described in Chapter 3
- * of the programming guide.
- * It has been written for clarity of exposition to illustrate various CUDA
- * programming principles, not with the goal of providing the most
- * performant generic kernel for matrix multiplication.
- *
- * See also:
- * V. Volkov and J. Demmel, "Benchmarking GPUs to tune dense linear algebra,"
- * in Proc. 2008 ACM/IEEE Conf. on Supercomputing (SC '08),
- * Piscataway, NJ: IEEE Press, 2008, pp. Art. 31:1-11.
- */
-
-// System includes
 #include <stdio.h>
 #include <assert.h>
-
-// CUDA runtime
 #include <cuda_runtime.h>
-
-// Helper functions and utilities to work with CUDA
 #include <helper_functions.h>
+#include <helper_cuda.h>
 
-/**
- * Matrix multiplication (CUDA Kernel) on the device: C = A * B
- * wA is A's width and wB is B's width
- */
-template <int BLOCK_SIZE> __global__ void
-matrixMulCUDA(float *C, float *A, float *B, int wA, int wB)
+#define BLKSIZE 32
+#define DEBUG 0
+
+__global__ void matrixMulCUDA_cke(float *C, float *A, float *B, int wA, int wB, size_t offsetA, size_t offsetC)
 {
-    // Block index
-    int bx = blockIdx.x;
-    int by = blockIdx.y;
+    int bx = blockIdx.x; // B col
+    int by = blockIdx.y; // A row
 
-    // Thread index
     int tx = threadIdx.x;
     int ty = threadIdx.y;
 
-    // Index of the first sub-matrix of A processed by the block
-    int aBegin = wA * BLOCK_SIZE * by;
-
-    // Index of the last sub-matrix of A processed by the block
+    int aBegin = wA * BLKSIZE * by;
     int aEnd   = aBegin + wA - 1;
+    int aStep  = BLKSIZE;
 
-    // Step size used to iterate through the sub-matrices of A
-    int aStep  = BLOCK_SIZE;
+    int bBegin = BLKSIZE * bx;
+    int bStep  = BLKSIZE * wB;
 
-    // Index of the first sub-matrix of B processed by the block
-    int bBegin = BLOCK_SIZE * bx;
-
-    // Step size used to iterate through the sub-matrices of B
-    int bStep  = BLOCK_SIZE * wB;
-
-    // Csub is used to store the element of the block sub-matrix
-    // that is computed by the thread
     float Csub = 0;
 
-    // Loop over all the sub-matrices of A and B
-    // required to compute the block sub-matrix
     for (int a = aBegin, b = bBegin;
          a <= aEnd;
          a += aStep, b += bStep)
     {
 
-        // Declaration of the shared memory array As used to
-        // store the sub-matrix of A
-        __shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
+        __shared__ float As[BLKSIZE][BLKSIZE];
+        __shared__ float Bs[BLKSIZE][BLKSIZE];
 
-        // Declaration of the shared memory array Bs used to
-        // store the sub-matrix of B
-        __shared__ float Bs[BLOCK_SIZE][BLOCK_SIZE];
-
-        // Load the matrices from device memory
-        // to shared memory; each thread loads
-        // one element of each matrix
-        As[ty][tx] = A[a + wA * ty + tx];
+        As[ty][tx] = A[a + wA * ty + tx + offsetA];
         Bs[ty][tx] = B[b + wB * ty + tx];
 
-        // Synchronize to make sure the matrices are loaded
         __syncthreads();
 
-        // Multiply the two matrices together;
-        // each thread computes one element
-        // of the block sub-matrix
 #pragma unroll
-
-        for (int k = 0; k < BLOCK_SIZE; ++k)
+        for (int k = 0; k < BLKSIZE; ++k)
         {
             Csub += As[ty][k] * Bs[k][tx];
         }
 
-        // Synchronize to make sure that the preceding
-        // computation is done before loading two new
-        // sub-matrices of A and B in the next iteration
         __syncthreads();
     }
 
-    // Write the block sub-matrix to device memory;
-    // each thread writes one element
-    int c = wB * BLOCK_SIZE * by + BLOCK_SIZE * bx;
-    C[c + wB * ty + tx] = Csub;
+    int c = wB * BLKSIZE * by + BLKSIZE * bx;
+    C[c + wB * ty + tx + offsetC] = Csub;
 }
 
 void constantInit(float *data, int size, float val)
@@ -123,15 +58,15 @@ void constantInit(float *data, int size, float val)
     }
 }
 
-/**
- * Run a simple test of matrix multiplication using CUDA
- */
-int matrixMultiply(int argc, char **argv, int block_size, dim3 &dimsA, dim3 &dimsB)
+int matrixMultiply(int argc, char **argv, dim3 &dimsA, dim3 &dimsB)
 {
-    // Allocate host memory for matrices A and B
+	//-------------------------------------------------------------------------------------------//
+	// Allocate host memory
+	//-------------------------------------------------------------------------------------------//
     unsigned int size_A = dimsA.x * dimsA.y;
     unsigned int mem_size_A = sizeof(float) * size_A;
     float *h_A = (float *)malloc(mem_size_A);
+
     unsigned int size_B = dimsB.x * dimsB.y;
     unsigned int mem_size_B = sizeof(float) * size_B;
     float *h_B = (float *)malloc(mem_size_B);
@@ -141,144 +76,114 @@ int matrixMultiply(int argc, char **argv, int block_size, dim3 &dimsA, dim3 &dim
     constantInit(h_A, size_A, 1.0f);
     constantInit(h_B, size_B, valB);
 
-    // Allocate device memory
-    float *d_A, *d_B, *d_C;
-
     // Allocate host matrix C
     dim3 dimsC(dimsB.x, dimsA.y, 1);
     unsigned int mem_size_C = dimsC.x * dimsC.y * sizeof(float);
     float *h_C = (float *) malloc(mem_size_C);
 
-    if (h_C == NULL)
-    {
-        fprintf(stderr, "Failed to allocate host matrix C!\n");
-        exit(EXIT_FAILURE);
-    }
+	printf("A = %d x %d\n", dimsA.x, dimsA.y);
+	printf("B = %d x %d\n", dimsB.x, dimsB.y);
+	printf("C = %d x %d\n", dimsC.x, dimsC.y);
 
-    cudaError_t error;
+	// TODO 
+	// Initialize cuda streams: 1st stream copies data, the others parallelly compute
+	int nstreams = 3;    
+	cudaStream_t *streams = (cudaStream_t*) malloc(nstreams * sizeof(cudaStream_t));
+	for(int i = 0; i < nstreams; i++)
+		checkCudaErrors(cudaStreamCreate(&(streams[i])));
 
-    error = cudaMalloc((void **) &d_A, mem_size_A);
+	// Pre-compute the workloads for each stream
+	//size_t mem_size_A_per_stream = mem_size_A / (nstreams-1);
+	size_t offsetA = size_A / (nstreams -1);
+	size_t offsetC = dimsC.x * dimsC.y / (nstreams - 1);
+	printf("offsetA = %ld\toffsetC= %ld\n", offsetA, offsetC);
 
-    if (error != cudaSuccess)
-    {
-        printf("cudaMalloc d_A returned error code %d, line(%d)\n", error, __LINE__);
-        exit(EXIT_FAILURE);
-    }
+	//-------------------------------------------------------------------------------------------//
+	// Allocate device memory
+	//-------------------------------------------------------------------------------------------//
+    float *d_A, *d_B, *d_C;
 
-    error = cudaMalloc((void **) &d_B, mem_size_B);
+    checkCudaErrors(cudaMalloc((void **) &d_A, mem_size_A));
+    checkCudaErrors(cudaMalloc((void **) &d_B, mem_size_B));
+    checkCudaErrors(cudaMalloc((void **) &d_C, mem_size_C));
 
-    if (error != cudaSuccess)
-    {
-        printf("cudaMalloc d_B returned error code %d, line(%d)\n", error, __LINE__);
-        exit(EXIT_FAILURE);
-    }
 
-    error = cudaMalloc((void **) &d_C, mem_size_C);
+    cudaMemcpy(d_B, h_B, mem_size_B, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_A, h_A, mem_size_A, cudaMemcpyHostToDevice);
 
-    if (error != cudaSuccess)
-    {
-        printf("cudaMalloc d_C returned error code %d, line(%d)\n", error, __LINE__);
-        exit(EXIT_FAILURE);
-    }
+    // Setup execution configuration 
+    dim3 threads(BLKSIZE, BLKSIZE);
+	int dimsA_per_stream = dimsA.y / (nstreams - 1);
+    dim3 grid(dimsB.x / threads.x, dimsA_per_stream / threads.y);
 
-    // copy host memory to device
-    error = cudaMemcpy(d_A, h_A, mem_size_A, cudaMemcpyHostToDevice);
-
-    if (error != cudaSuccess)
-    {
-        printf("cudaMemcpy (d_A,h_A) returned error code %d, line(%d)\n", error, __LINE__);
-        exit(EXIT_FAILURE);
-    }
-
-    error = cudaMemcpy(d_B, h_B, mem_size_B, cudaMemcpyHostToDevice);
-
-    if (error != cudaSuccess)
-    {
-        printf("cudaMemcpy (d_B,h_B) returned error code %d, line(%d)\n", error, __LINE__);
-        exit(EXIT_FAILURE);
-    }
-
-    // Setup execution parameters
-    dim3 threads(block_size, block_size);
-    dim3 grid(dimsB.x / threads.x, dimsA.y / threads.y);
+	//size_t sm_size = threads.x * threads.y * sizeof(float) * 2;
+	size_t sm_size = 0;
+	printf("launch grid = %d x %d\n", grid.x, grid.y);
 
     // Create and start timer
     printf("Computing result using CUDA Kernel...\n");
 
-    // Performs warmup operation using matrixMul CUDA kernel
-    if (block_size == 16)
-    {
-        matrixMulCUDA<16><<< grid, threads >>>(d_C, d_A, d_B, dimsA.x, dimsB.x);
-    }
-    else
-    {
-        matrixMulCUDA<32><<< grid, threads >>>(d_C, d_A, d_B, dimsA.x, dimsB.x);
-    }
+	for(int i=1; i<nstreams; i++)
+	{	
+		size_t startpos = offsetA * (i-1);
+		size_t outpos = offsetC * (i-1);
+		matrixMulCUDA_cke <<< grid, threads, sm_size, streams[i] >>> (d_C, 
+				                                                      d_B, 
+																	  d_A, 
+																	  dimsA.x, 
+																	  dimsB.x, 
+																	  startpos, 
+																	  outpos);
+	}
+
+#if DEBUG
+    checkCudaErrors(cudaDeviceSynchronize());
+    cudaMemcpy(h_C, d_C, mem_size_C, cudaMemcpyDeviceToHost);
+#endif
 
     printf("done\n");
 
+#if !DEBUG
+
     cudaDeviceSynchronize();
 
-    // Allocate CUDA events that we'll use for timing
+    // cuda event for timing 
     cudaEvent_t start;
-    error = cudaEventCreate(&start);
-
-    if (error != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to create start event (error code %s)!\n", cudaGetErrorString(error));
-        exit(EXIT_FAILURE);
-    }
+    checkCudaErrors(cudaEventCreate(&start));
 
     cudaEvent_t stop;
-    error = cudaEventCreate(&stop);
-
-    if (error != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to create stop event (error code %s)!\n", cudaGetErrorString(error));
-        exit(EXIT_FAILURE);
-    }
+    checkCudaErrors(cudaEventCreate(&stop));
 
     // Record the start event
-    error = cudaEventRecord(start, NULL);
+    checkCudaErrors(cudaEventRecord(start, NULL));
 
-    if (error != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to record start event (error code %s)!\n", cudaGetErrorString(error));
-        exit(EXIT_FAILURE);
-    }
+    cudaError_t error;
 
     // Execute the kernel
     int nIter = 300;
 
     for (int j = 0; j < nIter; j++)
     {
-        if (block_size == 16)
-        {
-            matrixMulCUDA<16><<< grid, threads >>>(d_C, d_A, d_B, dimsA.x, dimsB.x);
-        }
-        else
-        {
-            matrixMulCUDA<32><<< grid, threads >>>(d_C, d_A, d_B, dimsA.x, dimsB.x);
-        }
+		//TODO
+		for(int i=1; i<nstreams; i++)
+		{	
+			size_t startpos = offsetA * (i-1);
+			size_t outpos = offsetC * (i-1);
+			matrixMulCUDA_cke <<< grid, threads, sm_size, streams[i] >>> (d_C, 
+					                                                      d_B, 
+					                                                      d_A, 
+					                                                      dimsA.x,
+					                                                      dimsB.x, 
+				                                                      	  startpos, 
+					                                                      outpos);
+		}
     }
 
     // Record the stop event
-    error = cudaEventRecord(stop, NULL);
-
-    if (error != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to record stop event (error code %s)!\n", cudaGetErrorString(error));
-        exit(EXIT_FAILURE);
-    }
+    checkCudaErrors(cudaEventRecord(stop, NULL));
 
     // Wait for the stop event to complete
-    error = cudaEventSynchronize(stop);
-
-    if (error != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to synchronize on the stop event (error code %s)!\n", cudaGetErrorString(error));
-        exit(EXIT_FAILURE);
-    }
+    checkCudaErrors(cudaEventSynchronize(stop));
 
     float msecTotal = 0.0f;
     error = cudaEventElapsedTime(&msecTotal, start, stop);
@@ -300,14 +205,12 @@ int matrixMultiply(int argc, char **argv, int block_size, dim3 &dimsA, dim3 &dim
         flopsPerMatrixMul,
         threads.x * threads.y);
 
-    // Copy result from device to host
-    error = cudaMemcpy(h_C, d_C, mem_size_C, cudaMemcpyDeviceToHost);
 
-    if (error != cudaSuccess)
-    {
-        printf("cudaMemcpy (h_C,d_C) returned error code %d, line(%d)\n", error, __LINE__);
-        exit(EXIT_FAILURE);
-    }
+    // Copy result from device to host
+    cudaMemcpy(h_C, d_C, mem_size_C, cudaMemcpyDeviceToHost);
+
+#endif
+
 
     printf("Checking computed result for correctness: ");
     bool correct = true;
@@ -333,14 +236,24 @@ int matrixMultiply(int argc, char **argv, int block_size, dim3 &dimsA, dim3 &dim
     printf("%s\n", correct ? "Result = PASS" : "Result = FAIL");
 
     // Clean up memory
-    free(h_A);
-    free(h_B);
-    free(h_C);
+    cudaFreeHost(h_A);
+    cudaFreeHost(h_B);
+    cudaFreeHost(h_C);
     cudaFree(d_A);
     cudaFree(d_B);
     cudaFree(d_C);
 
+	for(int i = 0; i < nstreams; i++)
+		cudaStreamDestroy(streams[i]);
+	free(streams);
+
+#if !DEBUG
+	cudaEventDestroy(start);
+	cudaEventDestroy(stop);
+#endif
+
     printf("\nNOTE: The CUDA Samples are not meant for performance measurements. Results may vary when GPU Boost is enabled.\n");
+
 
     // cudaDeviceReset causes the driver to clean up all state. While
     // not mandatory in normal operation, it is good practice.  It is also
@@ -414,10 +327,13 @@ int main(int argc, char **argv)
     }
 
     // Use a larger block size for Fermi and above
-    int block_size = (deviceProp.major < 2) ? 16 : 32;
+    //int BLKSIZE = (deviceProp.major < 2) ? 16 : 32;
 
-    dim3 dimsA(5*2*block_size, 5*2*block_size, 1);
-    dim3 dimsB(5*4*block_size, 5*2*block_size, 1);
+    dim3 dimsA(5*2*BLKSIZE, 5*2*BLKSIZE, 1);
+    dim3 dimsB(5*4*BLKSIZE, 5*2*BLKSIZE, 1);
+
+	//printf("dimsA.x = %d\t dimsA.y = %d\n", dimsA.x, dimsA.y);
+	//printf("dimsB.x = %d\t dimsB.y = %d\n", dimsB.x, dimsB.y);
 
     // width of Matrix A
     if (checkCmdLineFlag(argc, (const char **)argv, "wA"))
@@ -452,7 +368,7 @@ int main(int argc, char **argv)
 
     printf("MatrixA(%d,%d), MatrixB(%d,%d)\n", dimsA.x, dimsA.y, dimsB.x, dimsB.y);
 
-    int matrix_result = matrixMultiply(argc, argv, block_size, dimsA, dimsB);
+    int matrix_result = matrixMultiply(argc, argv, dimsA, dimsB);
 
     exit(matrix_result);
 }

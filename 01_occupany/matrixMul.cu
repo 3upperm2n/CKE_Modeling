@@ -42,6 +42,9 @@
 template <int BLOCK_SIZE> __global__ void
 matrixMulCUDA(float *C, float *A, float *B, int wA, int wB)
 {
+	__shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
+	__shared__ float Bs[BLOCK_SIZE][BLOCK_SIZE];
+
     // Block index
     int bx = blockIdx.x;
     int by = blockIdx.y;
@@ -69,6 +72,14 @@ matrixMulCUDA(float *C, float *A, float *B, int wA, int wB)
     // that is computed by the thread
     float Csub = 0;
 
+	int gid_x = threadIdx.x + blockIdx.x * blockDim.x;                                              
+	int gid_y = threadIdx.y + blockIdx.y * blockDim.y;
+
+	if(gid_x == 0 && gid_y ==0)                                                                     
+	{
+		printf("aBegin = %d\taEnd = %d\taStep=%d\n",  aBegin, aEnd, aStep);  
+		printf("bBegin = %d\tbStep=%d\n",  bBegin, bStep);
+	}
     // Loop over all the sub-matrices of A and B
     // required to compute the block sub-matrix
     for (int a = aBegin, b = bBegin;
@@ -76,13 +87,6 @@ matrixMulCUDA(float *C, float *A, float *B, int wA, int wB)
          a += aStep, b += bStep)
     {
 
-        // Declaration of the shared memory array As used to
-        // store the sub-matrix of A
-        __shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
-
-        // Declaration of the shared memory array Bs used to
-        // store the sub-matrix of B
-        __shared__ float Bs[BLOCK_SIZE][BLOCK_SIZE];
 
         // Load the matrices from device memory
         // to shared memory; each thread loads
@@ -103,6 +107,10 @@ matrixMulCUDA(float *C, float *A, float *B, int wA, int wB)
             Csub += As[ty][k] * Bs[k][tx];
         }
 
+		if(gid_x == 0 && gid_y ==0)                                                                     
+		{
+			printf("C = %f\n",Csub);  
+		}
         // Synchronize to make sure that the preceding
         // computation is done before loading two new
         // sub-matrices of A and B in the next iteration
@@ -113,6 +121,8 @@ matrixMulCUDA(float *C, float *A, float *B, int wA, int wB)
     // each thread writes one element
     int c = wB * BLOCK_SIZE * by + BLOCK_SIZE * bx;
     C[c + wB * ty + tx] = Csub;
+//	if(gid_x == 0 && gid_y ==0)                                                                     
+//		printf("C = %f\n",Csub);  
 }
 
 void constantInit(float *data, int size, float val)
@@ -250,6 +260,7 @@ int matrixMultiply(int argc, char **argv, int block_size, dim3 &dimsA, dim3 &dim
     // Execute the kernel
     int nIter = 300;
 
+/*
     for (int j = 0; j < nIter; j++)
     {
         if (block_size == 16)
@@ -261,6 +272,7 @@ int matrixMultiply(int argc, char **argv, int block_size, dim3 &dimsA, dim3 &dim
             matrixMulCUDA<32><<< grid, threads >>>(d_C, d_A, d_B, dimsA.x, dimsB.x);
         }
     }
+*/
 
     // Record the stop event
     error = cudaEventRecord(stop, NULL);

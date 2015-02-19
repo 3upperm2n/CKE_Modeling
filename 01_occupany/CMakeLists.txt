@@ -29,6 +29,11 @@ cuda_add_executable(
 matrixMul
 matrixMul.cu
 )
+
+cuda_add_executable(
+matrixMul_low
+matrixMul_low.cu
+)
 	 
 cuda_add_executable(
 matrixMul_cke
@@ -38,6 +43,11 @@ matrixMul_cke.cu
 # Indicate target & libraries to link
 target_link_libraries(
 matrixMul	
+-lcudart
+) 
+
+target_link_libraries(
+matrixMul_low	
 -lcudart
 ) 
 
