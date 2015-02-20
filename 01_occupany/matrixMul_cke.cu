@@ -5,7 +5,7 @@
 #include <helper_cuda.h>
 
 #define BLKSIZE 32
-#define DEBUG 1
+#define DEBUG 0
 #define PROFILE_CPU 0
 
 __global__ void matrixMulCUDA_cke(float *C, float *A, float *B, int wA, int wB, size_t offsetA, size_t offsetC)
