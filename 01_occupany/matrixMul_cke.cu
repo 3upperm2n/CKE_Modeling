@@ -16,24 +16,21 @@ __global__ void matrixMulCUDA_cke(float *C, float *A, float *B, int wA, int wB, 
     int tx = threadIdx.x;
     int ty = threadIdx.y;
 
-    int aBegin = wA * BLKSIZE * by;
-    int aEnd   = aBegin + wA - 1;
-    int aStep  = BLKSIZE;
+    size_t aBegin = wA * BLKSIZE * by + offsetA;
+    size_t aEnd   = aBegin + wA - 1;
+    size_t aStep  = BLKSIZE;
 
-    int bBegin = BLKSIZE * bx;
-    int bStep  = BLKSIZE * wB;
+    size_t bBegin = BLKSIZE * bx;
+    size_t bStep  = BLKSIZE * wB;
 
-    float Csub = 0;
+    float Csub = 0.f;
 
-    for (int a = aBegin, b = bBegin;
-         a <= aEnd;
-         a += aStep, b += bStep)
+    for (size_t a = aBegin, b = bBegin; a <= aEnd; a += aStep, b += bStep)
     {
-
         __shared__ float As[BLKSIZE][BLKSIZE];
         __shared__ float Bs[BLKSIZE][BLKSIZE];
 
-        As[ty][tx] = A[a + wA * ty + tx + offsetA];
+        As[ty][tx] = A[a + wA * ty + tx];
         Bs[ty][tx] = B[b + wB * ty + tx];
 
         __syncthreads();
@@ -47,8 +44,8 @@ __global__ void matrixMulCUDA_cke(float *C, float *A, float *B, int wA, int wB, 
         __syncthreads();
     }
 
-    int c = wB * BLKSIZE * by + BLKSIZE * bx;
-    C[c + wB * ty + tx + offsetC] = Csub;
+    size_t c = wB * BLKSIZE * by + BLKSIZE * bx + offsetC;
+    C[c + wB * ty + tx] = Csub;
 }
 
 void constantInit(float *data, int size, float val)
@@ -161,7 +158,7 @@ int matrixMultiply(int argc, char **argv, dim3 &dimsA, dim3 &dimsB)
     dim3 grid(dimsB.x / threads.x, rowA_per_stream / threads.y);
 	printf("launch grid = %d x %d\n", grid.x, grid.y);
 
-	size_t sm_size = 0;
+	size_t sm_size = sizeof(float) * BLKSIZE * BLKSIZE * 2;
 
     // Create and start timer
     printf("Computing result using CUDA Kernel...\n");
@@ -170,9 +167,11 @@ int matrixMultiply(int argc, char **argv, dim3 &dimsA, dim3 &dimsB)
 	{	
 		size_t startpos = offsetA * i;
 		size_t outpos   = offsetC * i;
+		printf("startpos = %ld\toutpos= %ld\n", startpos, outpos);
+
 		matrixMulCUDA_cke <<< grid, threads, sm_size, streams[i] >>> (d_C, 
-				                                                      d_B, 
-																	  d_A, 
+				                                                      d_A, 
+																	  d_B, 
 																	  dimsA.x, 
 																	  dimsB.x, 
 																	  startpos, 
@@ -213,8 +212,8 @@ int matrixMultiply(int argc, char **argv, dim3 &dimsA, dim3 &dimsB)
 			size_t startpos = offsetA * (i-1);
 			size_t outpos = offsetC * (i-1);
 			matrixMulCUDA_cke <<< grid, threads, sm_size, streams[i] >>> (d_C, 
-					                                                      d_B, 
 					                                                      d_A, 
+					                                                      d_B, 
 					                                                      dimsA.x,
 					                                                      dimsB.x, 
 				                                                      	  startpos, 
@@ -275,9 +274,9 @@ int matrixMultiply(int argc, char **argv, dim3 &dimsA, dim3 &dimsB)
     printf("%s\n", correct ? "Result = PASS" : "Result = FAIL");
 
     // Clean up memory
-    cudaFreeHost(h_A);
-    cudaFreeHost(h_B);
-    cudaFreeHost(h_C);
+    free(h_A);
+    free(h_B);
+    free(h_C);
     cudaFree(d_A);
     cudaFree(d_B);
     cudaFree(d_C);
