@@ -72,14 +72,9 @@ matrixMulCUDA(float *C, float *A, float *B, int wA, int wB)
     // that is computed by the thread
     float Csub = 0;
 
-	int gid_x = threadIdx.x + blockIdx.x * blockDim.x;                                              
-	int gid_y = threadIdx.y + blockIdx.y * blockDim.y;
+//	int gid_x = threadIdx.x + blockIdx.x * blockDim.x;                                              
+//	int gid_y = threadIdx.y + blockIdx.y * blockDim.y;
 
-	if(gid_x == 0 && gid_y ==0)                                                                     
-	{
-		printf("aBegin = %d\taEnd = %d\taStep=%d\n",  aBegin, aEnd, aStep);  
-		printf("bBegin = %d\tbStep=%d\n",  bBegin, bStep);
-	}
     // Loop over all the sub-matrices of A and B
     // required to compute the block sub-matrix
     for (int a = aBegin, b = bBegin;
@@ -107,10 +102,6 @@ matrixMulCUDA(float *C, float *A, float *B, int wA, int wB)
             Csub += As[ty][k] * Bs[k][tx];
         }
 
-		if(gid_x == 0 && gid_y ==0)                                                                     
-		{
-			printf("C = %f\n",Csub);  
-		}
         // Synchronize to make sure that the preceding
         // computation is done before loading two new
         // sub-matrices of A and B in the next iteration
@@ -260,7 +251,7 @@ int matrixMultiply(int argc, char **argv, int block_size, dim3 &dimsA, dim3 &dim
     // Execute the kernel
     int nIter = 300;
 
-/*
+
     for (int j = 0; j < nIter; j++)
     {
         if (block_size == 16)
@@ -272,7 +263,7 @@ int matrixMultiply(int argc, char **argv, int block_size, dim3 &dimsA, dim3 &dim
             matrixMulCUDA<32><<< grid, threads >>>(d_C, d_A, d_B, dimsA.x, dimsB.x);
         }
     }
-*/
+
 
     // Record the stop event
     error = cudaEventRecord(stop, NULL);
