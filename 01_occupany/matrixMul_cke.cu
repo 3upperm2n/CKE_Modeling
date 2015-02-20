@@ -5,7 +5,7 @@
 #include <helper_cuda.h>
 
 #define BLKSIZE 32
-#define DEBUG 1
+#define DEBUG 0
 #define PROFILE_CPU 0
 
 __global__ void matrixMulCUDA_cke(float *C, float *A, float *B, int wA, int wB, size_t offsetA, size_t offsetC)
@@ -158,7 +158,8 @@ int matrixMultiply(int argc, char **argv, dim3 &dimsA, dim3 &dimsB)
     dim3 grid(dimsB.x / threads.x, rowA_per_stream / threads.y);
 	printf("launch grid = %d x %d\n", grid.x, grid.y);
 
-	size_t sm_size = sizeof(float) * BLKSIZE * BLKSIZE * 2;
+	//size_t sm_size = sizeof(float) * BLKSIZE * BLKSIZE * 2;
+	size_t sm_size = 0; 
 
     // Create and start timer
     printf("Computing result using CUDA Kernel...\n");
@@ -207,10 +208,10 @@ int matrixMultiply(int argc, char **argv, dim3 &dimsA, dim3 &dimsB)
     for (int j = 0; j < nIter; j++)
     {
 		//TODO
-		for(int i=1; i<nstreams; i++)
+		for(int i=0; i<nstreams; i++)
 		{	
-			size_t startpos = offsetA * (i-1);
-			size_t outpos = offsetC * (i-1);
+			size_t startpos = offsetA * i;
+			size_t outpos = offsetC * i;
 			matrixMulCUDA_cke <<< grid, threads, sm_size, streams[i] >>> (d_C, 
 					                                                      d_A, 
 					                                                      d_B, 
@@ -318,6 +319,18 @@ int matrixMultiply(int argc, char **argv, dim3 &dimsA, dim3 &dimsB)
  */
 int main(int argc, char **argv)
 {
+    printf("[Matrix Multiply Using CUDA] - Starting...\n");
+
+    if (checkCmdLineFlag(argc, (const char **)argv, "help") ||
+        checkCmdLineFlag(argc, (const char **)argv, "?"))
+    {
+        printf("Usage -device=n (n >= 0 for deviceID)\n");
+        printf("      -wA=WidthA -hA=HeightA (Width x Height of Matrix A)\n");
+        printf("      -wB=WidthB -hB=HeightB (Width x Height of Matrix B)\n");
+        printf("  Note: Outer matrix dimensions of A & B matrices must be equal.\n");
+
+        exit(EXIT_SUCCESS);
+    }
     // By default, we use device 0, otherwise we override the device ID based on what is provided at the command line
     int devID = 0;
 	cudaSetDevice(devID);
@@ -343,6 +356,29 @@ int main(int argc, char **argv)
     dim3 dimsA(320, 320, 1);
     dim3 dimsB(640, 320, 1); // x = col, y = row
 
+    // width of Matrix A
+    if (checkCmdLineFlag(argc, (const char **)argv, "wA"))
+    {
+        dimsA.x = getCmdLineArgumentInt(argc, (const char **)argv, "wA");
+    }
+
+    // height of Matrix A
+    if (checkCmdLineFlag(argc, (const char **)argv, "hA"))
+    {
+        dimsA.y = getCmdLineArgumentInt(argc, (const char **)argv, "hA");
+    }
+
+    // width of Matrix B
+    if (checkCmdLineFlag(argc, (const char **)argv, "wB"))
+    {
+        dimsB.x = getCmdLineArgumentInt(argc, (const char **)argv, "wB");
+    }
+
+    // height of Matrix B
+    if (checkCmdLineFlag(argc, (const char **)argv, "hB"))
+    {
+        dimsB.y = getCmdLineArgumentInt(argc, (const char **)argv, "hB");
+    }
     if (dimsA.x != dimsB.y)
     {
         printf("Error: outer matrix dimensions must be equal. (%d != %d)\n", dimsA.x, dimsB.y);
