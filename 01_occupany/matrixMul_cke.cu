@@ -135,9 +135,9 @@ int matrixMultiply(int argc, char **argv, dim3 &dimsA, dim3 &dimsB)
 		checkCudaErrors(cudaStreamCreate(&(streams[i])));
 
 	// Pre-compute the workloads for each stream
-	size_t offsetA = size_A / nstreams;
-	size_t offsetC = size_C / nstreams;
-	printf("offsetA = %ld\toffsetC= %ld\n", offsetA, offsetC);
+//	size_t offsetA = size_A / nstreams;
+//	size_t offsetC = size_C / nstreams;
+//	printf("offsetA = %ld\toffsetC= %ld\n", offsetA, offsetC);
 
 	//-------------------------------------------------------------------------------------------//
 	// Allocate device memory
@@ -151,12 +151,17 @@ int matrixMultiply(int argc, char **argv, dim3 &dimsA, dim3 &dimsB)
     cudaMemcpy(d_B, h_B, mem_size_B, cudaMemcpyHostToDevice);
     cudaMemcpy(d_A, h_A, mem_size_A, cudaMemcpyHostToDevice);
 
-	int rowA_per_stream = dimsA.y / nstreams;
+//	int rowA_per_stream = dimsA.y / nstreams;
+
+	int ratio_s0 = 1;
+	int ratio_s1 = 10 - ratio_s0;
 
     // Setup execution configuration 
     dim3 threads(BLKSIZE, BLKSIZE);
-    dim3 grid(dimsB.x / threads.x, rowA_per_stream / threads.y);
-	printf("launch grid = %d x %d\n", grid.x, grid.y);
+
+    dim3 grid_s0(dimsB.x / threads.x, ratio_s0);
+
+    dim3 grid_s1(dimsB.x / threads.x, ratio_s1);
 
 	//size_t sm_size = sizeof(float) * BLKSIZE * BLKSIZE * 2;
 	size_t sm_size = 0; 
@@ -164,6 +169,17 @@ int matrixMultiply(int argc, char **argv, dim3 &dimsA, dim3 &dimsB)
     // Create and start timer
     printf("Computing result using CUDA Kernel...\n");
 
+	size_t startpos_s0 = 0;
+	size_t startpos_s1 = ratio_s0 * BLKSIZE * dimsA.x;
+
+	size_t outpos_s0 = 0;
+	size_t outpos_s1 = ratio_s0 * BLKSIZE * dimsB.x;
+
+	//matrixMulCUDA_cke <<< grid, threads, sm_size, streams[i] >>> (d_C, d_A, d_B, dimsA.x, dimsB.x, startpos, outpos);
+	matrixMulCUDA_cke <<< grid_s0, threads, sm_size, streams[0] >>> (d_C, d_A, d_B, dimsA.x, dimsB.x, startpos_s0, outpos_s0);
+	matrixMulCUDA_cke <<< grid_s1, threads, sm_size, streams[1] >>> (d_C, d_A, d_B, dimsA.x, dimsB.x, startpos_s1, outpos_s1);
+
+	/*
 	for(int i=0; i<nstreams; i++)
 	{	
 		size_t startpos = offsetA * i;
@@ -178,6 +194,7 @@ int matrixMultiply(int argc, char **argv, dim3 &dimsA, dim3 &dimsB)
 																	  startpos, 
 																	  outpos);
 	}
+	*/
 
 #if DEBUG
     checkCudaErrors(cudaDeviceSynchronize());
@@ -207,6 +224,10 @@ int matrixMultiply(int argc, char **argv, dim3 &dimsA, dim3 &dimsB)
 
     for (int j = 0; j < nIter; j++)
     {
+		matrixMulCUDA_cke <<< grid_s0, threads, sm_size, streams[0] >>> (d_C, d_A, d_B, dimsA.x, dimsB.x, startpos_s0, outpos_s0);
+		matrixMulCUDA_cke <<< grid_s1, threads, sm_size, streams[1] >>> (d_C, d_A, d_B, dimsA.x, dimsB.x, startpos_s1, outpos_s1);
+
+	/*
 		//TODO
 		for(int i=0; i<nstreams; i++)
 		{	
@@ -220,6 +241,7 @@ int matrixMultiply(int argc, char **argv, dim3 &dimsA, dim3 &dimsB)
 				                                                      	  startpos, 
 					                                                      outpos);
 		}
+		*/
     }
 
     // Record the stop event
