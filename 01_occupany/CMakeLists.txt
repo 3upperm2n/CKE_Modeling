@@ -19,28 +19,19 @@ include_directories(
 
 # indicate library dir 
 link_directories(
-/usr/local/cuda/lib64		
+/usr/local/cuda/lib64
 )
 
 
 # Indicate target & source files to compile
 cuda_add_executable(
-matrixMul
-matrixMul.cu
-)
-	 
-cuda_add_executable(
-matrixMul_cke
-matrixMul_cke.cu
+fiber_greedy
+fiber_greedy.cu
 )
 
 # Indicate target & libraries to link
 target_link_libraries(
-matrixMul	
+fiber_greedy
 -lcudart
 ) 
 
-target_link_libraries(
-matrixMul_cke	
--lcudart
-) 
