@@ -1,4 +1,5 @@
-include ../../common/make.config
+CUDA_DIR = /usr/local/cuda-6.5
+OS_SIZE = $(shell uname -m | sed -e "s/i.86/32/" -e "s/x86_64/64/" -e "s/armv7l/32/")
 
 # C compiler
 CC = gcc
@@ -8,21 +9,18 @@ CC_FLAGS = -g  -O2
 NVCC = $(CUDA_DIR)/bin/nvcc
 NVCC_FLAGS = -I$(CUDA_DIR)/include
 
-# 'make dbg=1' enables NVCC debugging
-ifeq ($(dbg),1)
-	NVCC_FLAGS += -g -O0
+NVCC_FLAGS += -O2
+
+ifeq ($(OS_SIZE), 64)
+  CUDA_LIB_DIR = -L$(CUDA_DIR)/lib64
 else
-	NVCC_FLAGS += -O2
+  CUDA_LIB_DIR = -L$(CUDA_DIR)/lib
 endif
 
-# 'make emu=1' compiles the CUDA kernels for emulation
-ifeq ($(emu),1)
-	NVCC_FLAGS += -deviceemu
-endif
 
 
 backprop: backprop.o facetrain.o imagenet.o backprop_cuda.o 
-	$(CC) $(CC_FLAGS) backprop.o facetrain.o imagenet.o backprop_cuda.o -o backprop -L$(CUDA_LIB_DIR) -lcuda -lcudart -lm
+	$(CC) $(CC_FLAGS) backprop.o facetrain.o imagenet.o backprop_cuda.o -o backprop $(CUDA_LIB_DIR) -lcuda -lcudart -lm
 
 %.o: %.[ch]
 	$(CC) $(CC_FLAGS) $< -c
@@ -38,7 +36,6 @@ backprop_cuda.o: backprop_cuda.cu backprop.h
 
 imagenet.o: imagenet.c backprop.h
 	$(CC) $(CC_FLAGS) imagenet.c -c
-
 
 clean:
 	rm -f *.o *~ backprop backprop_cuda.linkinfo
