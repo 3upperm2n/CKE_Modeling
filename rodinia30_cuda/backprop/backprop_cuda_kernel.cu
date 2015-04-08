@@ -8,6 +8,7 @@
 #include "math.h"
 #include "cuda.h"
 
+/*
 #include "cuPrintf.cu"
 
 //The macro CUPRINTF is defined for architectures
@@ -20,7 +21,7 @@
 				threadIdx.z*blockDim.x*blockDim.y+threadIdx.y*blockDim.x+threadIdx.x,\
 						__VA_ARGS__)
 #endif
-
+*/
 
 
 #define DEVICE_INTRINSIC_QUALIFIERS   __device__ __forceinline__
@@ -33,6 +34,8 @@ unsigned int smid()
 	return r;
 }
 
+
+//		asm("mov.u32 %0, %%clock;" : "=r"(x));
 
 
 __global__ void
@@ -51,7 +54,7 @@ bpnn_layerforward_CUDA(float *input_cuda,
 	if(threadIdx.x == 0 && threadIdx.y == 0)
 	{
 		int sm_id = smid();
-		cuPrintf("block(%d, %d) \t on smx %5d\n", blockIdx.x, blockIdx.y, sm_id);
+		printf("%u\n", sm_id);
 	}
 
 
@@ -128,8 +131,8 @@ __global__ void bpnn_adjust_weights_cuda(float * delta,
 
 	if(threadIdx.x == 0 && threadIdx.y == 0)
 	{
-		int sm_id = smid();
-		cuPrintf("block(%d, %d) \t on smx %5d\n", blockIdx.x, blockIdx.y, sm_id);
+		//int sm_id = smid();
+		//cuPrintf("block(%d, %d) \t on smx %5d\n", blockIdx.x, blockIdx.y, sm_id);
 	}
 	
    int index =  ( hid + 1 ) * HEIGHT * by + ( hid + 1 ) * ty + tx + 1 + ( hid + 1 ) ;  

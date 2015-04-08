@@ -274,7 +274,7 @@ int main(int argc, char*argv[])
 	}
 	else
 	{
-		cout << "Please specify file name!\nUsage: ./fiber inputfile\n" << endl;
+		cout << "Please specify file name!\nUsage: ./fiber inputfile num_streams\n" << endl;
 		exit (EXIT_FAILURE);
 	}
 
