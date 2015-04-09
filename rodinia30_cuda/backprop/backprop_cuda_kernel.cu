@@ -8,21 +8,6 @@
 #include "math.h"
 #include "cuda.h"
 
-/*
-#include "cuPrintf.cu"
-
-//The macro CUPRINTF is defined for architectures
-//with different compute capabilities.
-#if __CUDA_ARCH__ < 200     //Compute capability 1.x architectures
-#define CUPRINTF cuPrintf
-#else                       //Compute capability 2.x architectures
-#define CUPRINTF(fmt, ...) printf("[%d, %d]:\t" fmt, \
-		blockIdx.y*gridDim.x+blockIdx.x,\
-				threadIdx.z*blockDim.x*blockDim.y+threadIdx.y*blockDim.x+threadIdx.x,\
-						__VA_ARGS__)
-#endif
-*/
-
 
 #define DEVICE_INTRINSIC_QUALIFIERS   __device__ __forceinline__
 
@@ -34,9 +19,6 @@ unsigned int smid()
 	return r;
 }
 
-
-
-
 DEVICE_INTRINSIC_QUALIFIERS
 unsigned int timer()
 {
@@ -44,8 +26,6 @@ unsigned int timer()
 	asm("mov.u32 %0, %%clock;" : "=r"(r));
 	return r;
 }
-
-//		asm("mov.u32 %0, %%clock;" : "=r"(x));
 
 
 __global__ void
