@@ -1,8 +1,17 @@
-include ../../common/make.config
+CUDA_DIR = /usr/local/cuda-7.0
+OS_SIZE = $(shell uname -m | sed -e "s/i.86/32/" -e "s/x86_64/64/" -e "s/armv7l/32/")
 
 CC := $(CUDA_DIR)/bin/nvcc
 
 INCLUDE := $(CUDA_DIR)/include
+
+ifeq ($(OS_SIZE), 64)
+  CUDA_LIB_DIR = -L$(CUDA_DIR)/lib64
+else
+  CUDA_LIB_DIR = -L$(CUDA_DIR)/lib
+endif
+
+
 
 SRC = bfs.cu
 

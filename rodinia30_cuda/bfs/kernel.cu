@@ -18,8 +18,31 @@ The CUDA Kernel for Applying BFS on a loaded Graph. Created By Pawan Harish
 #ifndef _KERNEL_H_
 #define _KERNEL_H_
 
+#define DEVICE_INTRINSIC_QUALIFIERS   __device__ __forceinline__
+
+DEVICE_INTRINSIC_QUALIFIERS
+unsigned int smid()
+{
+	unsigned int r;
+	asm("mov.u32 %0, %%smid;" : "=r"(r));
+	return r;
+}
+
+DEVICE_INTRINSIC_QUALIFIERS
+unsigned int timer()
+{
+	unsigned int r;
+	asm("mov.u32 %0, %%clock;" : "=r"(r));
+	return r;
+}
+
+
 __global__ void Kernel( Node* g_graph_nodes, int* g_graph_edges, bool* g_graph_mask, bool* g_updating_graph_mask, bool *g_graph_visited, int* g_cost, int no_of_nodes) 
 {
+	unsigned int start, end;
+	if(threadIdx.x == 0 && threadIdx.y == 0)
+		start = timer();
+
 	int tid = blockIdx.x*MAX_THREADS_PER_BLOCK + threadIdx.x;
 	if( tid<no_of_nodes && g_graph_mask[tid])
 	{
@@ -34,6 +57,16 @@ __global__ void Kernel( Node* g_graph_nodes, int* g_graph_edges, bool* g_graph_m
 			}
 		}
 	}
+
+
+	// output timing
+	if(threadIdx.x == 0 && threadIdx.y == 0)
+	{
+		end = timer();
+		unsigned int sm_id = smid();
+		printf("smx:%u:%u:%u\n", sm_id, start, end);
+	}
+
 }
 
 #endif 
