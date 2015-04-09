@@ -35,6 +35,16 @@ unsigned int smid()
 }
 
 
+
+
+DEVICE_INTRINSIC_QUALIFIERS
+unsigned int timer()
+{
+	unsigned int r;
+	asm("mov.u32 %0, %%clock;" : "=r"(r));
+	return r;
+}
+
 //		asm("mov.u32 %0, %%clock;" : "=r"(x));
 
 
@@ -46,17 +56,13 @@ bpnn_layerforward_CUDA(float *input_cuda,
 					   int in,
 					   int hid) 
 {
+	unsigned int start, end;
+	if(threadIdx.x == 0 && threadIdx.y == 0)
+		start = timer();
 
    int by = blockIdx.y;
    int tx = threadIdx.x;
    int ty = threadIdx.y;
-
-	if(threadIdx.x == 0 && threadIdx.y == 0)
-	{
-		int sm_id = smid();
-		printf("%u\n", sm_id);
-	}
-
 
    int index =  ( hid + 1 ) * HEIGHT * by + ( hid + 1 ) * ty + tx + 1 + ( hid + 1 ) ;  
 
@@ -111,6 +117,18 @@ bpnn_layerforward_CUDA(float *input_cuda,
    if ( tx == 0 ) {
 	   hidden_partial_sum[by * hid + ty] = weight_matrix[tx][ty];
    }
+
+	if(threadIdx.x == 0 && threadIdx.y == 0)
+		end = timer();
+
+	// output timing
+	if(threadIdx.x == 0 && threadIdx.y == 0)
+	{
+		unsigned int sm_id = smid();
+
+		printf("smx:%u:%u:%u\n", sm_id, start, end);
+	}
+
 
 }
 
