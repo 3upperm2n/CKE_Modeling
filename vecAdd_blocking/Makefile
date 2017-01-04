@@ -36,14 +36,14 @@ endif
 #-----------------------------------------------------------------------------#
 all: build 
 
-build: main 
+build: main main_2
 
 main: main.cu
 	$(NVC) $(NV_INC) $(NV_LIB) $(NVCC_FLAGS) $(GENCODE_FLAGS) -o $@ $^ $(LIB_LINKER)
 
-run: 
-	./main
+main_2: main_2.cu
+	$(NVC) $(NV_INC) $(NV_LIB) $(NVCC_FLAGS) $(GENCODE_FLAGS) -o $@ $^ $(LIB_LINKER)
 
 .PHONY: clean
 clean:
-	rm -rf main 
+	rm -rf main main_2

@@ -4,6 +4,7 @@
 
 #include <cuda_runtime.h>
 #include <helper_cuda.h>
+#include <helper_functions.h>
 
 const int N = 1 << 20;
 
@@ -63,7 +64,7 @@ int main( int argc, char **argv)
     for (int i = 0; i < num_streams; i++) {
         checkCudaErrors(cudaStreamCreate(&(streams[i])));
     }
-	
+
 	//------------------------------------------------------------------------//
 	// allocate data on the host
 	//------------------------------------------------------------------------//
@@ -101,6 +102,13 @@ int main( int argc, char **argv)
 	dim3 threads = dim3(256, 1, 1);
 	dim3 blocks  = dim3(BLK(N, threads.x), 1, 1);
 
+	// create cuda event handles
+	cudaEvent_t start, stop;
+	checkCudaErrors(cudaEventCreate(&start));
+	checkCudaErrors(cudaEventCreate(&stop));
+
+	cudaEventRecord(start,0);
+
 	// copy data to deivce
 	for (int i = 0; i < num_streams; i++) {
 		int offset = i * N;
@@ -125,7 +133,24 @@ int main( int argc, char **argv)
 	}
 
 	// required for async copy
-	cudaDeviceSynchronize();
+	//cudaDeviceSynchronize();
+
+	//cudaEventSynchronize(stop);
+    cudaEventRecord(stop, 0);
+
+    // have CPU do some work while waiting for stage 1 to finish
+    unsigned long int counter=0;
+    while (cudaEventQuery(stop) == cudaErrorNotReady)
+    {
+        counter++;
+    }
+
+
+	
+	float gpuTime_ms= 0;
+	cudaEventElapsedTime(&gpuTime_ms, start, stop);
+
+	printf("runtime (ms) : %f\n", gpuTime_ms);
 
 	// check data
 	bool success = 1;
@@ -147,6 +172,9 @@ int main( int argc, char **argv)
     for (int i = 0; i < num_streams; i++) {
         checkCudaErrors(cudaStreamDestroy(streams[i]));
     }
+
+    checkCudaErrors(cudaEventDestroy(start));
+    checkCudaErrors(cudaEventDestroy(stop));
 
 	//free(a_h);
 	//free(b_h);
