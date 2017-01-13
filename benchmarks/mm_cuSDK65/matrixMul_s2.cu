@@ -1,40 +1,16 @@
-/**
- * Copyright 1993-2014 NVIDIA Corporation.  All rights reserved.
- *
- * Please refer to the NVIDIA end user license agreement (EULA) associated
- * with this source code for terms and conditions that govern your use of
- * this software. Any use, reproduction, disclosure, or distribution of
- * this software and related documentation outside the terms of the EULA
- * is strictly prohibited.
- *
- */
-
-/**
- * Matrix multiplication: C = A * B.
- * Host code.
- *
- * This sample implements matrix multiplication as described in Chapter 3
- * of the programming guide.
- * It has been written for clarity of exposition to illustrate various CUDA
- * programming principles, not with the goal of providing the most
- * performant generic kernel for matrix multiplication.
- *
- * See also:
- * V. Volkov and J. Demmel, "Benchmarking GPUs to tune dense linear algebra,"
- * in Proc. 2008 ACM/IEEE Conf. on Supercomputing (SC '08),
- * Piscataway, NJ: IEEE Press, 2008, pp. Art. 31:1-11.
- */
-
 // System includes
 #include <stdio.h>
 #include <assert.h>
 
 // CUDA runtime
 #include <cuda_runtime.h>
-#include <helper_cuda.h>  
+#include <helper_cuda.h>
 
 // Helper functions and utilities to work with CUDA
 #include <helper_functions.h>
+
+// -device=0   -wA=320 -hA=320 -wB=320 -hB=320
+
 
 /**
  * Matrix multiplication (CUDA Kernel) on the device: C = A * B
@@ -232,7 +208,6 @@ void matrixMultiply(int argc, char **argv, int block_size, dim3 &dimsA, dim3 &di
     cudaFreeHost(h_A1);
     cudaFreeHost(h_B1);
     cudaFreeHost(h_C1);
-
     cudaFreeHost(h_A2);
     cudaFreeHost(h_B2);
     cudaFreeHost(h_C2);
@@ -240,7 +215,6 @@ void matrixMultiply(int argc, char **argv, int block_size, dim3 &dimsA, dim3 &di
     cudaFree(d_A1);
     cudaFree(d_B1);
     cudaFree(d_C1);
-
     cudaFree(d_A2);
     cudaFree(d_B2);
     cudaFree(d_C2);

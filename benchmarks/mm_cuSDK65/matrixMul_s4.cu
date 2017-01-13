@@ -1,40 +1,16 @@
-/**
- * Copyright 1993-2014 NVIDIA Corporation.  All rights reserved.
- *
- * Please refer to the NVIDIA end user license agreement (EULA) associated
- * with this source code for terms and conditions that govern your use of
- * this software. Any use, reproduction, disclosure, or distribution of
- * this software and related documentation outside the terms of the EULA
- * is strictly prohibited.
- *
- */
-
-/**
- * Matrix multiplication: C = A * B.
- * Host code.
- *
- * This sample implements matrix multiplication as described in Chapter 3
- * of the programming guide.
- * It has been written for clarity of exposition to illustrate various CUDA
- * programming principles, not with the goal of providing the most
- * performant generic kernel for matrix multiplication.
- *
- * See also:
- * V. Volkov and J. Demmel, "Benchmarking GPUs to tune dense linear algebra,"
- * in Proc. 2008 ACM/IEEE Conf. on Supercomputing (SC '08),
- * Piscataway, NJ: IEEE Press, 2008, pp. Art. 31:1-11.
- */
-
 // System includes
 #include <stdio.h>
 #include <assert.h>
 
 // CUDA runtime
 #include <cuda_runtime.h>
-#include <helper_cuda.h>  
+#include <helper_cuda.h>
 
 // Helper functions and utilities to work with CUDA
 #include <helper_functions.h>
+
+// -device=0   -wA=320 -hA=320 -wB=320 -hB=320
+
 
 /**
  * Matrix multiplication (CUDA Kernel) on the device: C = A * B
@@ -133,7 +109,7 @@ void matrixMultiply(int argc, char **argv, int block_size, dim3 &dimsA, dim3 &di
 	//-------------------//
 	// cuda streams
 	//-------------------//
-	int nstreams = 2;                                                           
+	int nstreams = 4;                                                           
 	cudaStream_t *streams = (cudaStream_t*) malloc(nstreams * sizeof(cudaStream_t));
 	for(int i = 0; i < nstreams; i++)                                           
 		checkCudaErrors(cudaStreamCreate(&(streams[i])));
@@ -148,6 +124,10 @@ void matrixMultiply(int argc, char **argv, int block_size, dim3 &dimsA, dim3 &di
 	cudaMallocHost((void **) &h_A1, mem_size_A);
 	float *h_A2 = NULL;
 	cudaMallocHost((void **) &h_A2, mem_size_A);
+	float *h_A3 = NULL;
+	cudaMallocHost((void **) &h_A3, mem_size_A);
+	float *h_A4 = NULL;
+	cudaMallocHost((void **) &h_A4, mem_size_A);
 
 	//-------------//
 	// B
@@ -159,13 +139,21 @@ void matrixMultiply(int argc, char **argv, int block_size, dim3 &dimsA, dim3 &di
 	cudaMallocHost((void **) &h_B1, mem_size_B);
 	float *h_B2 = NULL;
 	cudaMallocHost((void **) &h_B2, mem_size_B);
+	float *h_B3 = NULL;
+	cudaMallocHost((void **) &h_B3, mem_size_B);
+	float *h_B4 = NULL;
+	cudaMallocHost((void **) &h_B4, mem_size_B);
 
     // Initialize host memory
     constantInit(h_A1, size_A, 1.0f);
     constantInit(h_A2, size_A, 1.0f);
+    constantInit(h_A3, size_A, 1.0f);
+    constantInit(h_A4, size_A, 1.0f);
 
     constantInit(h_B1, size_B, 0.01f);
     constantInit(h_B2, size_B, 0.01f);
+    constantInit(h_B3, size_B, 0.01f);
+    constantInit(h_B4, size_B, 0.01f);
 
 	//-------------//
 	// C
@@ -177,6 +165,10 @@ void matrixMultiply(int argc, char **argv, int block_size, dim3 &dimsA, dim3 &di
 	cudaMallocHost((void **) &h_C1, mem_size_C);
 	float *h_C2 = NULL;
 	cudaMallocHost((void **) &h_C2, mem_size_C);
+	float *h_C3 = NULL;
+	cudaMallocHost((void **) &h_C3, mem_size_C);
+	float *h_C4 = NULL;
+	cudaMallocHost((void **) &h_C4, mem_size_C);
 
 	//----------------------------------------//
 	// gpu
@@ -188,7 +180,6 @@ void matrixMultiply(int argc, char **argv, int block_size, dim3 &dimsA, dim3 &di
     cudaMalloc((void **) &d_B1, mem_size_B);
     cudaMalloc((void **) &d_C1, mem_size_C);
 
-
     float *d_A2 = NULL;
 	float *d_B2 = NULL;
 	float *d_C2 = NULL;
@@ -196,7 +187,23 @@ void matrixMultiply(int argc, char **argv, int block_size, dim3 &dimsA, dim3 &di
     cudaMalloc((void **) &d_B2, mem_size_B);
     cudaMalloc((void **) &d_C2, mem_size_C);
 
+    float *d_A3 = NULL;
+	float *d_B3 = NULL;
+	float *d_C3 = NULL;
+    cudaMalloc((void **) &d_A3, mem_size_A);
+    cudaMalloc((void **) &d_B3, mem_size_B);
+    cudaMalloc((void **) &d_C3, mem_size_C);
+
+    float *d_A4 = NULL;
+	float *d_B4 = NULL;
+	float *d_C4 = NULL;
+    cudaMalloc((void **) &d_A4, mem_size_A);
+    cudaMalloc((void **) &d_B4, mem_size_B);
+    cudaMalloc((void **) &d_C4, mem_size_C);
+
+	//-------------------------------------------------
     // Setup execution parameters
+	//-------------------------------------------------
     dim3 threads(block_size, block_size);
     dim3 grid(dimsB.x / threads.x, dimsA.y / threads.y);
 
@@ -205,9 +212,15 @@ void matrixMultiply(int argc, char **argv, int block_size, dim3 &dimsA, dim3 &di
 	//----------------------------------------------
     cudaMemcpyAsync(d_A1, h_A1, mem_size_A, cudaMemcpyHostToDevice, streams[0]);
     cudaMemcpyAsync(d_B1, h_B1, mem_size_B, cudaMemcpyHostToDevice, streams[0]);
+
     cudaMemcpyAsync(d_A2, h_A2, mem_size_A, cudaMemcpyHostToDevice, streams[1]);
     cudaMemcpyAsync(d_B2, h_B2, mem_size_B, cudaMemcpyHostToDevice, streams[1]);
 
+    cudaMemcpyAsync(d_A3, h_A3, mem_size_A, cudaMemcpyHostToDevice, streams[2]);
+    cudaMemcpyAsync(d_B3, h_B3, mem_size_B, cudaMemcpyHostToDevice, streams[2]);
+
+    cudaMemcpyAsync(d_A4, h_A4, mem_size_A, cudaMemcpyHostToDevice, streams[3]);
+    cudaMemcpyAsync(d_B4, h_B4, mem_size_B, cudaMemcpyHostToDevice, streams[3]);
 
 	//----------------------------------------------
     //  kernel
@@ -215,11 +228,17 @@ void matrixMultiply(int argc, char **argv, int block_size, dim3 &dimsA, dim3 &di
 	matrixMulCUDA<32><<< grid, threads, 0, streams[0]>>>(d_C1, d_A1, d_B1, dimsA.x, dimsB.x);
 	matrixMulCUDA<32><<< grid, threads, 0, streams[1]>>>(d_C2, d_A2, d_B2, dimsA.x, dimsB.x);
 
+	matrixMulCUDA<32><<< grid, threads, 0, streams[2]>>>(d_C3, d_A3, d_B3, dimsA.x, dimsB.x);
+	matrixMulCUDA<32><<< grid, threads, 0, streams[3]>>>(d_C4, d_A4, d_B4, dimsA.x, dimsB.x);
+
 	//----------------------------------------------
     // device to host
 	//----------------------------------------------
 	cudaMemcpyAsync(h_C1, d_C1, mem_size_C, cudaMemcpyDeviceToHost, streams[0]);
 	cudaMemcpyAsync(h_C2, d_C2, mem_size_C, cudaMemcpyDeviceToHost, streams[1]);
+
+	cudaMemcpyAsync(h_C3, d_C3, mem_size_C, cudaMemcpyDeviceToHost, streams[2]);
+	cudaMemcpyAsync(h_C4, d_C4, mem_size_C, cudaMemcpyDeviceToHost, streams[3]);
 
 
     cudaDeviceSynchronize();
@@ -237,6 +256,16 @@ void matrixMultiply(int argc, char **argv, int block_size, dim3 &dimsA, dim3 &di
     cudaFreeHost(h_B2);
     cudaFreeHost(h_C2);
 
+    cudaFreeHost(h_A3);
+    cudaFreeHost(h_B3);
+    cudaFreeHost(h_C3);
+
+    cudaFreeHost(h_A4);
+    cudaFreeHost(h_B4);
+    cudaFreeHost(h_C4);
+
+
+
     cudaFree(d_A1);
     cudaFree(d_B1);
     cudaFree(d_C1);
@@ -245,12 +274,14 @@ void matrixMultiply(int argc, char **argv, int block_size, dim3 &dimsA, dim3 &di
     cudaFree(d_B2);
     cudaFree(d_C2);
 
+    cudaFree(d_A3);
+    cudaFree(d_B3);
+    cudaFree(d_C3);
 
-    // cudaDeviceReset causes the driver to clean up all state. While
-    // not mandatory in normal operation, it is good practice.  It is also
-    // needed to ensure correct operation when the application is being
-    // profiled. Calling cudaDeviceReset causes all profile data to be
-    // flushed before the application exits
+    cudaFree(d_A4);
+    cudaFree(d_B4);
+    cudaFree(d_C4);
+
     cudaDeviceReset();
 }
 

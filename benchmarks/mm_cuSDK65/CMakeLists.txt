@@ -4,11 +4,10 @@ find_package(CUDA QUIET REQUIRED)
 
 # nvcc options
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-O2 
--gencode arch=compute_20,code=sm_20 
 -gencode arch=compute_30,code=sm_30 
 -gencode arch=compute_35,code=sm_35 
--gencode arch=compute_37,code=sm_37 
 -gencode arch=compute_50,code=sm_50 
+-gencode arch=compute_52,code=sm_52 
 )
 
 # indicate include dir
@@ -34,6 +33,21 @@ matrixMul_cke
 matrixMul_cke.cu
 )
 
+cuda_add_executable(
+matrixMul_s2
+matrixMul_s2.cu
+)
+
+cuda_add_executable(
+matrixMul_s4
+matrixMul_s4.cu
+)
+
+cuda_add_executable(
+matrixMul_s6
+matrixMul_s6.cu
+)
+
 # Indicate target & libraries to link
 target_link_libraries(
 matrixMul	
@@ -42,5 +56,20 @@ matrixMul
 
 target_link_libraries(
 matrixMul_cke	
+-lcudart
+) 
+
+target_link_libraries(
+matrixMul_s2
+-lcudart
+) 
+
+target_link_libraries(
+matrixMul_s4
+-lcudart
+) 
+
+target_link_libraries(
+matrixMul_s6
 -lcudart
 ) 
