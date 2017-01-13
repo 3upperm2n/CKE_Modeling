@@ -1,5 +1,5 @@
 # Check CUDA Version
-CUDA_DIR = /usr/local/cuda-7.5
+CUDA_DIR = /usr/local/cuda-8.0
 
 # 32-bit or 64-bit  
 OS_TYPE = $(shell uname -m | sed -e "s/i.86/32/" -e "s/x86_64/64/" -e "s/armv7l/32/")
@@ -36,14 +36,26 @@ endif
 #-----------------------------------------------------------------------------#
 all: build 
 
-build: main 
+build: main_sep main_seq  main no_d2h h2d 3h2d
+
+main_sep: main_sep.cu
+	$(NVC) $(NV_INC) $(NV_LIB) $(NVCC_FLAGS) $(GENCODE_FLAGS) -o $@ $^ $(LIB_LINKER)
+
+main_seq: main_seq.cu
+	$(NVC) $(NV_INC) $(NV_LIB) $(NVCC_FLAGS) $(GENCODE_FLAGS) -o $@ $^ $(LIB_LINKER)
 
 main: main.cu
 	$(NVC) $(NV_INC) $(NV_LIB) $(NVCC_FLAGS) $(GENCODE_FLAGS) -o $@ $^ $(LIB_LINKER)
 
-run: 
-	./main
+no_d2h: no_d2h.cu
+	$(NVC) $(NV_INC) $(NV_LIB) $(NVCC_FLAGS) $(GENCODE_FLAGS) -o $@ $^ $(LIB_LINKER)
+
+h2d: h2d.cu
+	$(NVC) $(NV_INC) $(NV_LIB) $(NVCC_FLAGS) $(GENCODE_FLAGS) -o $@ $^ $(LIB_LINKER)
+
+3h2d: 3h2d.cu
+	$(NVC) $(NV_INC) $(NV_LIB) $(NVCC_FLAGS) $(GENCODE_FLAGS) -o $@ $^ $(LIB_LINKER)
 
 .PHONY: clean
 clean:
-	rm -rf main 
+	rm -rf main_seq main_sep main no_d2h h2d 3h2d
