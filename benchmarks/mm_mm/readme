@@ -1,0 +1,6 @@
+nvprof --print-gpu-trace --csv ./mm -device=0   -wA=192 -hA=192 -wB=192 -hB=192 2> trace.csv
+It seems to have overlapping for n=192
+
+nvprof --print-gpu-trace --csv ./mm -device=0   -wA=960 -hA=960 -wB=960 -hB=960 2> trace.csv
+the overlapping fades away after n=960
+

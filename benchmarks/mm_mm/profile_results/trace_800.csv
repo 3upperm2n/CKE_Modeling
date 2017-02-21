@@ -1,0 +1,13 @@
+==14264== NVPROF is profiling process 14264, command: ./mm -device=0 -wA=800 -hA=800 -wB=800 -hB=800
+==14264== Profiling application: ./mm -device=0 -wA=800 -hA=800 -wB=800 -hB=800
+==14264== Profiling result:
+"Start","Duration","Grid X","Grid Y","Grid Z","Block X","Block Y","Block Z","Registers Per Thread","Static SMem","Dynamic SMem","Size","Throughput","Device","Context","Stream","Name"
+ms,ms,,,,,,,,KB,B,MB,GB/s,,,,
+509.049825,0.421539,,,,,,,,,,2.441406,5.655908,"GeForce GTX 950 (0)","1","13","[CUDA memcpy HtoD]"
+509.472516,0.423107,,,,,,,,,,2.441406,5.634948,"GeForce GTX 950 (0)","1","13","[CUDA memcpy HtoD]"
+509.896807,0.411939,,,,,,,,,,2.441406,5.787716,"GeForce GTX 950 (0)","1","14","[CUDA memcpy HtoD]"
+509.904871,3.413178,25,25,1,32,32,1,28,8.000000,0,,,"GeForce GTX 950 (0)","1","13","void matrixMulCUDA<int=32>(float*, float*, float*, int, int) [223]"
+510.309866,0.408995,,,,,,,,,,2.441406,5.829376,"GeForce GTX 950 (0)","1","14","[CUDA memcpy HtoD]"
+513.258304,3.389209,25,25,1,32,32,1,28,8.000000,0,,,"GeForce GTX 950 (0)","1","14","void matrixMulCUDA<int=32>(float*, float*, float*, int, int) [230]"
+513.324065,0.403171,,,,,,,,,,2.441406,5.913585,"GeForce GTX 950 (0)","1","13","[CUDA memcpy DtoH]"
+516.649689,0.403139,,,,,,,,,,2.441406,5.914054,"GeForce GTX 950 (0)","1","14","[CUDA memcpy DtoH]"
