@@ -1,0 +1,7 @@
+nvprof --print-gpu-trace --csv ./mem_mem 2 0 700 2> trace.csv
+It seems to have overlapping for n=700
+
+
+nvprof --print-gpu-trace --csv ./mem_mem 2 0 320000 2> trace.csv
+the overlapping fades away
+
