@@ -1,0 +1,7 @@
+export CUDA_DEVICE_MAX_CONNECTIONS=32
+cd vecAdd_blocking && make clean && make
+nvprof --print-gpu-trace --csv ./main_separate 2 0  2> trace_block.csv
+cp trace_block.csv ../
+cd ../vecAdd_nonBlocking &&  make clean && make
+nvprof --print-gpu-trace --csv ./main 2 0  2> trace_async.csv
+cp trace_async.csv ../
